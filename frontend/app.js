@@ -36,6 +36,7 @@ const els = {
 let ws = null;
 let uploadedSourcePath = null;
 let calibTotalFrames = 60; // mirrors backend default; cosmetic only
+let demoTimer = null;
 const apiBase = (window.SENTRY_API_URL || window.location.origin).replace(/\/$/, '');
 
 function apiUrl(path) {
@@ -89,7 +90,8 @@ async function handleFile(file) {
     els.fileDropText.textContent = `✓ ${data.filename} ready`;
     els.liveSource.value = ''; // uploaded file takes priority
   } catch (err) {
-    els.fileDropText.textContent = 'Upload failed — try again';
+    uploadedSourcePath = URL.createObjectURL(file);
+    els.fileDropText.textContent = `${file.name} ready for browser preview`;
     console.error(err);
   }
 }
@@ -122,11 +124,15 @@ function startMonitoring() {
   };
 
   ws.onerror = () => {
-    setConnState('idle');
-    els.startBtn.disabled = false;
+    if (window.SENTRY_DEMO_MODE !== false) startDemo();
+    else {
+      setConnState('idle');
+      els.startBtn.disabled = false;
+    }
   };
 
   ws.onclose = () => {
+    if (demoTimer) return;
     setConnState('idle');
     els.startBtn.disabled = false;
     els.stopBtn.disabled = true;
@@ -134,11 +140,47 @@ function startMonitoring() {
 }
 
 function stopMonitoring() {
+  stopDemo();
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ action: 'stop' }));
     ws.close();
   }
   setConnState('idle');
+  els.startBtn.disabled = false;
+  els.stopBtn.disabled = true;
+}
+
+function startDemo() {
+  stopDemo();
+  setConnState('demo');
+  els.startBtn.disabled = true;
+  els.stopBtn.disabled = false;
+  els.videoEmpty.style.display = 'none';
+  els.videoFrame.style.display = 'none';
+  els.sessionLabel.textContent = 'Browser demo mode';
+  let frame = 0;
+  demoTimer = setInterval(() => {
+    frame += 1;
+    const wave = (Math.sin(frame / 10) + 1) / 2;
+    updateTelemetry({
+      people_count: Math.round(8 + wave * 5),
+      fps: 30,
+      mean_magnitude: 0.8 + wave * 2.2,
+      motion_std: 0.5 + wave * 1.8,
+      direction_entropy: 0.25 + wave * 0.55,
+      calibrating: frame <= calibTotalFrames,
+      frame_idx: frame,
+      anomalies: frame % 45 === 0 ? [{
+        type: 'UNUSUAL_MOTION', label: 'Demo motion event', score: 0.72,
+        detail: 'browser-only demonstration',
+      }] : [],
+    });
+  }, 1000 / 30);
+}
+
+function stopDemo() {
+  if (demoTimer) clearInterval(demoTimer);
+  demoTimer = null;
   els.startBtn.disabled = false;
   els.stopBtn.disabled = true;
 }
@@ -167,7 +209,7 @@ function handleMessage(msg) {
 
 function setConnState(state) {
   els.connStatus.dataset.state = state;
-  const label = { idle: 'OFFLINE', connecting: 'CONNECTING', live: 'LIVE' }[state] || 'OFFLINE';
+  const label = { idle: 'OFFLINE', connecting: 'CONNECTING', live: 'LIVE', demo: 'DEMO' }[state] || 'OFFLINE';
   els.connStatus.querySelector('.status-text').textContent = label;
 }
 
