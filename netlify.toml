@@ -1,0 +1,5 @@
+[build]
+  publish = "frontend"
+
+# Netlify hosts the dashboard. The Python API and WebSocket stream
+# run as a separate service defined in render.yaml.
