@@ -131,6 +131,8 @@ function startMonitoring() {
     else {
       setConnState('idle');
       els.startBtn.disabled = false;
+      els.sessionLabel.textContent = 'Real backend unavailable';
+      alert('Real scanning backend is unavailable. Start the FastAPI YOLO server or configure SENTRY_API_URL.');
     }
   };
 
