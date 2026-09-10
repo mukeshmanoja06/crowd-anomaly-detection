@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTRY // Crowd Anomaly Console</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="scanlines"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◎</span>
+    <span class="brand-name">SENTRY</span>
+    <span class="brand-sub">crowd anomaly console</span>
+  </div>
+  <div class="topbar-right">
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="status-pill" id="connStatus" data-state="idle">
+      <span class="dot"></span><span class="status-text">OFFLINE</span>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- LEFT: source control -->
+  <section class="panel source-panel">
+    <h2 class="panel-title"><span class="eyebrow">01</span> Source</h2>
+
+    <div class="field-group">
+      <label class="field-label">Upload recorded footage</label>
+      <div class="file-drop" id="fileDrop" role="button" tabindex="0" aria-label="Upload recorded video">
+        <input type="file" id="fileInput" accept="video/*" hidden>
+        <span id="fileDropText">Drop a video file or click to browse</span>
+      </div>
+    </div>
+
+    <div class="divider"><span>or</span></div>
+
+    <div class="field-group">
+      <label class="field-label">Live feed source</label>
+      <input type="text" id="liveSource" class="text-input" aria-label="Live feed source" placeholder="0  (webcam)  ·  rtsp://...  ·  http://...">
+      <p class="field-hint">Use <code>0</code> for a local webcam, or paste an RTSP/HTTP CCTV stream URL.</p>
+    </div>
+
+    <div class="field-group field-row">
+      <div>
+        <label class="field-label">Model</label>
+        <select id="modelSelect" class="text-input">
+          <option value="yolo11n.pt">YOLOv11 Nano (fastest)</option>
+          <option value="yolo11s.pt">YOLOv11 Small (balanced)</option>
+          <option value="yolo11m.pt">YOLOv11 Medium (accurate)</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">Confidence</label>
+        <input type="range" id="confSlider" aria-label="Detection confidence" min="0.1" max="0.9" step="0.05" value="0.35">
+        <span class="field-value" id="confValue">0.35</span>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn btn-primary" id="startBtn">Start monitoring</button>
+      <button class="btn btn-ghost" id="stopBtn" disabled>Stop</button>
+    </div>
+
+    <p class="calib-note">
+      The first ~60 frames establish a <em>normal-behaviour baseline</em>.
+      Keep this window free of unusual activity for accurate alerts.
+    </p>
+  </section>
+
+  <!-- CENTER: live video -->
+  <section class="panel video-panel">
+    <div class="video-frame-header">
+      <h2 class="panel-title"><span class="eyebrow">02</span> Feed</h2>
+      <div class="people-counter">
+        <span class="people-counter-value" id="peopleCount">0</span>
+        <span class="people-counter-label">people tracked</span>
+      </div>
+    </div>
+
+    <div class="video-stage" id="videoStage">
+      <img id="videoFrame" alt="Live annotated feed">
+      <div class="video-empty" id="videoEmpty">
+        <div class="radar">
+          <div class="radar-sweep"></div>
+        </div>
+        <p>No active feed</p>
+        <p class="video-empty-sub">Choose a source on the left, then start monitoring.</p>
+      </div>
+      <div class="calib-overlay" id="calibOverlay" hidden>
+        <div class="calib-bar"><div class="calib-bar-fill" id="calibFill"></div></div>
+        <span id="calibText">Calibrating baseline…</span>
+      </div>
+    </div>
+
+    <div class="video-footer">
+      <div class="legend">
+        <span class="legend-item"><i class="swatch swatch-normal"></i>Tracked person</span>
+        <span class="legend-item"><i class="swatch swatch-flag"></i>Flagged motion</span>
+        <span class="legend-item"><i class="swatch swatch-zone"></i>Anomaly zone</span>
+      </div>
+      <div class="fps-readout">FPS <span id="fpsValue">0.0</span></div>
+    </div>
+  </section>
+
+  <!-- RIGHT: telemetry + alerts -->
+  <section class="panel telemetry-panel">
+    <h2 class="panel-title"><span class="eyebrow">03</span> Telemetry</h2>
+
+    <div class="metric">
+      <div class="metric-label">Motion magnitude</div>
+      <div class="meter"><div class="meter-fill" id="meterMag"></div></div>
+      <div class="metric-value" id="valMag">0.000</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Motion variance</div>
+      <div class="meter"><div class="meter-fill meter-fill-alt" id="meterStd"></div></div>
+      <div class="metric-value" id="valStd">0.000</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Direction entropy</div>
+      <div class="meter"><div class="meter-fill meter-fill-warn" id="meterEnt"></div></div>
+      <div class="metric-value" id="valEnt">0.000</div>
+    </div>
+
+    <h3 class="ticker-title">Alert log</h3>
+    <div class="alert-ticker" id="alertTicker">
+      <div class="ticker-empty">No anomalies detected yet. System nominal.</div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footbar">
+  <span>YOLOv11 person detection</span><span class="sep">·</span>
+  <span>Dense optical-flow anomaly engine</span><span class="sep">·</span>
+  <span id="sessionLabel">No session</span>
+</footer>
+
+<script src="/config.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
