@@ -1,5 +1,5 @@
 [build]
-  publish = "frontend"
+  command = "echo Static frontend deployment"
+    publish = "frontend"
 
-# Netlify hosts the dashboard. The Python API and WebSocket stream
-# run as a separate service defined in render.yaml.
+    # Netlify hosts the static dashboard.
