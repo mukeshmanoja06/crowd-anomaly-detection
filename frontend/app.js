@@ -15,6 +15,7 @@ const els = {
   startBtn: document.getElementById('startBtn'),
   stopBtn: document.getElementById('stopBtn'),
   videoFrame: document.getElementById('videoFrame'),
+  cctvPreview: document.getElementById('cctvPreview'),
   cameraPreview: document.getElementById('cameraPreview'),
   videoEmpty: document.getElementById('videoEmpty'),
   calibOverlay: document.getElementById('calibOverlay'),
@@ -126,7 +127,7 @@ function startMonitoring() {
   };
 
   ws.onerror = () => {
-    if (window.SENTRY_DEMO_MODE !== false) startDemo();
+    if (window.SENTRY_DEMO_MODE !== false) startDemo(liveVal);
     else {
       setConnState('idle');
       els.startBtn.disabled = false;
@@ -152,14 +153,14 @@ function stopMonitoring() {
   els.stopBtn.disabled = true;
 }
 
-function startDemo() {
+function startDemo(source = '') {
   stopDemo();
   setConnState('demo');
   els.startBtn.disabled = true;
   els.stopBtn.disabled = false;
   els.videoEmpty.style.display = 'none';
   els.videoFrame.style.display = 'none';
-  startCameraPreview();
+  startBrowserSource(source);
   els.sessionLabel.textContent = 'Browser demo mode';
   let frame = 0;
   demoTimer = setInterval(() => {
@@ -190,6 +191,8 @@ function stopDemo() {
   }
   els.cameraPreview.srcObject = null;
   els.cameraPreview.style.display = 'none';
+  els.cctvPreview.removeAttribute('src');
+  els.cctvPreview.style.display = 'none';
   els.startBtn.disabled = false;
   els.stopBtn.disabled = true;
 }
@@ -204,6 +207,24 @@ async function startCameraPreview() {
     els.sessionLabel.textContent = 'Demo mode · camera permission needed';
     console.warn('Camera preview unavailable:', err);
   }
+}
+
+function startBrowserSource(source) {
+  const trimmedSource = (source || '').trim();
+  if (/^https?:\/\//i.test(trimmedSource)) {
+    els.cctvPreview.src = trimmedSource;
+    els.cctvPreview.style.display = 'block';
+    els.sessionLabel.textContent = 'Browser demo · CCTV link';
+    els.cctvPreview.onerror = () => {
+      els.sessionLabel.textContent = 'CCTV link blocked or unavailable';
+    };
+    return;
+  }
+  if (/^rtsp:\/\//i.test(trimmedSource)) {
+    els.sessionLabel.textContent = 'RTSP needs the Python backend';
+    return;
+  }
+  startCameraPreview();
 }
 
 function handleMessage(msg) {
