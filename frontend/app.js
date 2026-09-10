@@ -15,6 +15,7 @@ const els = {
   startBtn: document.getElementById('startBtn'),
   stopBtn: document.getElementById('stopBtn'),
   videoFrame: document.getElementById('videoFrame'),
+  cameraPreview: document.getElementById('cameraPreview'),
   videoEmpty: document.getElementById('videoEmpty'),
   calibOverlay: document.getElementById('calibOverlay'),
   calibFill: document.getElementById('calibFill'),
@@ -37,6 +38,7 @@ let ws = null;
 let uploadedSourcePath = null;
 let calibTotalFrames = 60; // mirrors backend default; cosmetic only
 let demoTimer = null;
+let cameraStream = null;
 const apiBase = (window.SENTRY_API_URL || window.location.origin).replace(/\/$/, '');
 
 function apiUrl(path) {
@@ -157,6 +159,7 @@ function startDemo() {
   els.stopBtn.disabled = false;
   els.videoEmpty.style.display = 'none';
   els.videoFrame.style.display = 'none';
+  startCameraPreview();
   els.sessionLabel.textContent = 'Browser demo mode';
   let frame = 0;
   demoTimer = setInterval(() => {
@@ -181,8 +184,26 @@ function startDemo() {
 function stopDemo() {
   if (demoTimer) clearInterval(demoTimer);
   demoTimer = null;
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  els.cameraPreview.srcObject = null;
+  els.cameraPreview.style.display = 'none';
   els.startBtn.disabled = false;
   els.stopBtn.disabled = true;
+}
+
+async function startCameraPreview() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    els.cameraPreview.srcObject = cameraStream;
+    els.cameraPreview.style.display = 'block';
+  } catch (err) {
+    els.sessionLabel.textContent = 'Demo mode · camera permission needed';
+    console.warn('Camera preview unavailable:', err);
+  }
 }
 
 function handleMessage(msg) {
