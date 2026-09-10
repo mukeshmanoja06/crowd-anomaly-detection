@@ -67,6 +67,11 @@ async def frontend_app():
     return FileResponse(os.path.join(FRONTEND_DIR, "app.js"), media_type="application/javascript")
 
 
+@app.get("/style.css")
+async def frontend_styles():
+    return FileResponse(os.path.join(FRONTEND_DIR, "style.css"), media_type="text/css")
+
+
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
